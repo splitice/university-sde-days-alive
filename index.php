@@ -56,8 +56,12 @@ include(__DIR__.'/include/db.php');
         <strong>Well Done! </strong> You have been alive for <strong><?=days_alive($_POST['dob']);?></strong> days.
     </div>
     <?php
+
+        $sql = 'INSERT INTO latest_timestamps (lt_timestamp) VALUES(NOW()) RETURNING currval((select pg_get_serial_sequence(\'latest_timestamps\', \'lt_id\'))) AS lastinsertid';
+        $res = pg_query($pgcon,$sql);
+        $last_insert = pg_fetch_assoc($res);
         $ts = strtotime($_POST['dob']);
-        $sql = 'INSERT INTO latest_entries (le_timestamp, le_name, le_birthdate) VALUES(NOW(),\''.pg_escape_string($pgcon, $_POST['name']).'\', \''.date( 'Y-m-d H:i:s', $ts ).'\')';
+        $sql = 'INSERT INTO latest_entries (lt_id, le_name, le_birthdate) VALUES('.$last_insert['lastinsertid'].',\''.pg_escape_string($pgcon, $_POST['name']).'\', \''.date( 'Y-m-d H:i:s', $ts ).'\')';
         pg_query($pgcon,$sql);
     }
     ?>
@@ -73,12 +77,12 @@ include(__DIR__.'/include/db.php');
             </tr>
         </thead>
         <?php
-        $res = pg_query($pgcon,'SELECT * FROM latest_entries ORDER BY le_timestamp DESC LIMIT 10');
+        $res = pg_query($pgcon,'SELECT * FROM latest_entries LEFT JOIN latest_timestamps ON (latest_entries.lt_id=latest_timestamps.lt_id) ORDER BY lt_timestamp DESC LIMIT 10');
         if($res){
             //Query completed successfully
             while($row = pg_fetch_assoc($res)){
                 echo '<tr>';
-                echo '<td>', $row['le_timestamp'],'</td>';
+                echo '<td>', $row['lt_timestamp'],'</td>';
                 echo '<td>', $row['le_name'],'</td>';
                 echo '<td>', $row['le_birthdate'],'</td>';
                 echo '<td>', days_alive($row['le_birthdate']),'</td>';
